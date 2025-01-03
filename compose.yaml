@@ -1,0 +1,72 @@
+﻿services:
+  api:
+    image: api
+#  networks:
+#    - football-network
+    build:
+      context: .
+      dockerfile: ./src/API/Dockerfile
+    ports:  
+      - "5218:8080"
+    restart: unless-stopped
+    networks:
+      - football-network
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=db;Database=FootballPlayerDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+      - ApiKey=${API_KEY}
+    depends_on:
+      - db
+      - redis
+      
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: db
+    platform: linux/amd64
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+      - SA_PASSWORD=YourStrong!Passw0rd
+    restart: unless-stopped
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - football-network
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "YourStrong!Passw0rd" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+      
+      
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - football-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      
+      
+volumes:
+  sqlserver_data:
+   driver: local
+  redis_data:
+   driver: local
+
+networks:
+  football-network:
+    driver: bridge
+      
